@@ -1,0 +1,17 @@
+export const CASES=[
+  {id:'metacarpal',number:'01',title:'Fifth metacarpal fracture',region:'Right hand',subtitle:'An illustrated look at a displaced metacarpal fracture.',tag:'HAND',bones:27,
+    findings:'This synthetic case illustrates an angulated and displaced fracture of the distal fifth metacarpal shaft. The two amber segments represent the proximal and distal fragments. The remaining hand anatomy is an approximate atlas illustration.',
+    impression:'Illustrative displaced distal fifth metacarpal fracture.',
+    tip:'A useful fracture description identifies the bone and location, then describes displacement, angulation, and any visible joint involvement.',
+    patient:'The fifth metacarpal is the long bone behind your little finger. In this example, it is broken into two main pieces that have moved out of line. Rotate the model to see the relationship between them.'},
+  {id:'radius',number:'02',title:'Distal radius fracture',region:'Right wrist',subtitle:'Explore an illustrative fracture near the wrist joint.',tag:'WRIST',bones:29,
+    findings:'This synthetic case illustrates separation of the distal radius from the shaft near the wrist. The amber segment represents the distal fragment. The ulna and hand provide approximate anatomical context. Joint surface detail is not resolved by this model.',
+    impression:'Illustrative distal radius fracture. Articular involvement is not established.',
+    tip:'Describe the location and direction of displacement. Assess joint involvement only when the supplied images support it; record uncertainty explicitly.',
+    patient:'The radius is one of the two bones in your forearm. In this example, the break is near the wrist. The highlighted piece shows where the illustrated fragment sits relative to the rest of the bone.'},
+  {id:'normal',number:'03',title:'Hand anatomy atlas',region:'Right hand',subtitle:'Meet the 27 bones that make a hand.',tag:'ANATOMY',bones:27,
+    findings:'An approximate hand atlas is shown, including eight carpals, five metacarpals, and fourteen phalanges. No fracture is illustrated. This is not a finding of normality on any supplied radiograph.',
+    impression:'Educational hand anatomy atlas. No diagnostic assessment performed.',
+    tip:'Work systematically through alignment, bones, joint spaces, and soft tissues. A 3D atlas cannot establish that a radiograph is normal.',
+    patient:'Your hand has 27 bones. The wrist bones are called carpals, the palm bones are metacarpals, and the finger bones are phalanges. Select a bone to learn its name.'},
+];
