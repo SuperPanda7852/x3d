@@ -50,5 +50,22 @@ try{
   await click('examples');await page.locator('[data-case="metacarpal"]').click();await page.waitForFunction(()=>document.querySelectorAll('.view-card').length===2);await page.setViewportSize({width:390,height:844});await page.waitForTimeout(500);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'No mobile horizontal overflow');await page.screenshot({path:'test-results/mobile.png',fullPage:true});await click('tab-report');await page.screenshot({path:'test-results/mobile-report.png',fullPage:true});await click('model-info');assert.equal(await page.getByRole('dialog').isVisible(),true);await page.keyboard.press('Escape');assert.equal(await page.getByRole('dialog').count(),0);
   assert.equal(errors.length,0,`Browser errors: ${errors.join('; ')}`);
   console.log('PASS: mobile layout, reports, accessible dialogs, no runtime errors');
+
+  const fallbackContext=await browser.newContext();
+  const fallback=await fallbackContext.newPage();
+  await fallback.addInitScript(()=>{
+    const getContext=HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext=function(type,...args){
+      return type==='webgl'||type==='webgl2'?null:getContext.call(this,type,...args);
+    };
+  });
+  await fallback.goto(origin);await fallback.waitForFunction(()=>window.__x3dReady);
+  assert.equal(await fallback.locator('.view-card').count(),2);
+  assert.match(await fallback.locator('.webgl-error').innerText(),/3D rendering is unavailable/);
+  await fallback.waitForFunction(()=>[...document.querySelectorAll('.view-preview img')].every(img=>img.complete&&img.naturalWidth>0));
+  await fallback.locator('[data-action="tab-report"]').click();
+  assert.match(await fallback.locator('#report-panel').innerText(),/MOCK REPORT/);
+  await fallbackContext.close();
+  console.log('PASS: reference images and reports remain usable without WebGL');
   console.log('All X3D end-to-end checks passed.');
 }finally{await browser.close();}

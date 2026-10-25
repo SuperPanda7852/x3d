@@ -2,14 +2,30 @@
 
 A working educational recreation inspired by the supplied X3D screenshots. Built with Vite, vanilla JavaScript, Three.js, and Lucide. It is independent of the original X3D project.
 
+**[Open the app](https://x3d-anatomy-lab.goldenvole14.chatgpt.site)** · **[Contribute](CONTRIBUTING.md)** · **[MIT license](LICENSE)**
+
+The hosted app is free to open without signing in. Your studies and reference images stay in your own browser. No API key or backend is required.
+
 ## Run locally
 
+Use Node.js **22.12 or later** and npm. These commands work on Windows, macOS, and Linux:
+
 ```sh
-npm install
+git clone https://github.com/SuperPanda7852/x3d.git
+cd x3d
+npm ci
 npm run dev
 ```
 
 Open the URL printed by Vite. `npm run build` creates a static site in `dist/`. `npm run preview` serves the production build.
+
+## Browser support and self-hosting
+
+Use a current Chrome, Edge, Firefox, or Safari browser with WebGL 2 and hardware acceleration for the 3D viewer. Mobile layouts support touch rotation and pinch zoom. If 3D rendering is unavailable, reference images and educational reports remain usable. Browser restrictions can affect clipboard, fullscreen, and persistent storage; these features degrade independently.
+
+Run `npm ci` and `npm run build`, then serve the contents of `dist/` on any static HTTPS host. Keep the app at the site's root path. There is no server or private API dependency. The `.openai/hosting.json` file identifies this project's Sites deployment; replace that identity when creating a separate Site. It is not a credential.
+
+This project is MIT-licensed. Third-party notices are available in [public/third-party-notices.txt](public/third-party-notices.txt) and are included in the built site. Fonts load from Google Fonts with system-font fallbacks.
 
 ## What works
 
@@ -57,10 +73,14 @@ If no validated reconstruction is returned, keep the atlas labeled as an illustr
 
 ## Browser verification
 
-With the dev server running:
+Build the app, install the test browser, and run the checks:
 
 ```sh
+npm run build
+npx playwright install chromium
 npm test
 ```
 
-The smoke script uses an installed Chrome on macOS by default. Set `X3D_BROWSER_PATH` to another Chromium executable or install Playwright's Chromium using `npx playwright install chromium`. Override the test origin with `X3D_BASE_URL`. Screenshots and exported fixtures are written to ignored `test-results/`.
+`npm test` starts and stops its own preview server and tests the production build. On Linux, use `npx playwright install --with-deps chromium` if browser system libraries are missing. The smoke script uses an installed Chrome on macOS when present, or Playwright's Chromium otherwise. Set `X3D_BROWSER_PATH` to another Chromium executable. Override the test origin with `X3D_BASE_URL` to test an existing server. Screenshots and exported fixtures are written to ignored `test-results/`.
+
+GitHub Actions builds the project on Windows, macOS, and Linux, and runs the full browser checks on Linux. See [CONTRIBUTING.md](CONTRIBUTING.md) for the development workflow.

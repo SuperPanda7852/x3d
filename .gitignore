@@ -3,3 +3,7 @@ dist/
 .sites-runtime/
 .DS_Store
 test-results/
+.env
+.env.*
+!.env.example
+playwright-report/

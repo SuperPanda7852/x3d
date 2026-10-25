@@ -1,10 +1,10 @@
-import { createIcons, Plus, X, Upload, ArrowUpRight, ArrowLeft, ArrowRight, ChevronDown, ChevronRight, Check, CheckCheck, Box, FileText, SlidersHorizontal, Download, Info, RotateCcw, Move, ScanLine, Expand, Minus, CircleHelp, ShieldCheck, Layers, Eye, Copy, CheckCircle2, Settings2, Image, Aperture, Circle, Hand, MousePointer2, ExternalLink, MoreHorizontal, ArrowDownToLine, Sparkles, FolderPlus, LockKeyhole, View, Rotate3d } from 'lucide';
-import { AnatomyViewer, makeSyntheticViews } from './viewer.js';
+import { createIcons, Plus, X, Upload, ArrowUpRight, ArrowLeft, ArrowRight, ChevronDown, ChevronRight, Check, CheckCheck, Box, FileText, SlidersHorizontal, Download, Info, RotateCcw, Move, ScanLine, Expand, Minus, CircleHelp, ShieldCheck, Layers, Eye, Copy, CheckCircle2, Settings2, Image, Aperture, Circle, Hand, MousePointer2, ExternalLink, MoreHorizontal, ArrowDownToLine, Sparkles, FolderPlus, LockKeyhole, View, Rotate3d, Github } from 'lucide';
+import { AnatomyViewer } from './viewer.js';
 import { CASES } from './cases.js';
 import { BONE_INFO } from './anatomy.js';
 import './style.css';
 
-const icons={Plus,X,Upload,ArrowUpRight,ArrowLeft,ArrowRight,ChevronDown,ChevronRight,Check,CheckCheck,Box,FileText,SlidersHorizontal,Download,Info,RotateCcw,Move,ScanLine,Expand,Minus,CircleHelp,ShieldCheck,Layers,Eye,Copy,CheckCircle2,Settings2,Image,Aperture,Circle,Hand,MousePointer2,ExternalLink,MoreHorizontal,ArrowDownToLine,Sparkles,FolderPlus,LockKeyhole,View,Rotate3d};
+const icons={Plus,X,Upload,ArrowUpRight,ArrowLeft,ArrowRight,ChevronDown,ChevronRight,Check,CheckCheck,Box,FileText,SlidersHorizontal,Download,Info,RotateCcw,Move,ScanLine,Expand,Minus,CircleHelp,ShieldCheck,Layers,Eye,Copy,CheckCircle2,Settings2,Image,Aperture,Circle,Hand,MousePointer2,ExternalLink,MoreHorizontal,ArrowDownToLine,Sparkles,FolderPlus,LockKeyhole,View,Rotate3d,Github};
 const $=s=>document.querySelector(s);
 const icon=(name,cls='')=>`<i data-lucide="${name.replace(/([a-z0-9])([A-Z])/g,'$1-$2').toLowerCase()}" class="${cls}" aria-hidden="true"></i>`;
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -12,6 +12,7 @@ function refreshIcons(){createIcons({icons,attrs:{'stroke-width':1.65}});}
 const state={source:'demo',caseId:'metacarpal',views:[],tab:'model',stage:'model',camera:'oblique',highlight:true,labels:true,auto:false,opacity:1,audience:'resident',notes:'',selectedBone:null,anatomy:'metacarpal',left:false};
 let viewer,saveTimer,toastTimer,lastFocus,studyEpoch=0,modalKind=null;
 const syntheticCache=new Map();
+function exampleViews(id){return ['PA','Oblique'].map(projection=>({id:crypto.randomUUID(),name:`Illustrative ${projection.toLowerCase()} view`,projection,src:`/examples/${id}-${projection.toLowerCase()}.png`,width:360,height:470,synthetic:true}));}
 const caseData=()=>CASES.find(c=>c.id===state.caseId)||CASES[0];
 const currentKind=()=>state.source==='demo'?caseData().id:state.anatomy;
 const currentRegion=()=>state.source==='demo'?caseData().region:`${state.left?'Left':'Right'} ${state.anatomy==='radius'?'wrist':'hand'}`;
@@ -21,7 +22,7 @@ $('#app').innerHTML=`
     <a class="brand" href="#" data-action="home" aria-label="X3D home"><span class="brand-mark"><span></span><span></span></span><span>X3D<span class="brand-period">.</span></span></a>
     <div class="brand-description">A new perspective on anatomy</div>
     <div class="header-center"><span class="status-dot"></span><span id="save-status">Educational workspace</span></div>
-    <nav class="header-actions" aria-label="Workspace"><button class="text-button" data-action="examples">${icon('Layers')}<span>Example studies</span></button><span class="header-divider"></span><button class="icon-button" data-action="about" aria-label="About X3D">${icon('CircleHelp')}</button><button class="avatar" data-action="settings" aria-label="Workspace settings">JD</button></nav>
+    <nav class="header-actions" aria-label="Workspace"><button class="text-button" data-action="examples">${icon('Layers')}<span>Example studies</span></button><a class="text-button source-nav" href="https://github.com/SuperPanda7852/x3d" target="_blank" rel="noopener noreferrer" aria-label="X3D open-source repository">${icon('Github')}<span>Source</span></a><span class="header-divider"></span><button class="icon-button" data-action="about" aria-label="About X3D">${icon('CircleHelp')}</button><button class="avatar" data-action="settings" aria-label="Workspace settings">${icon('Settings2')}</button></nav>
   </header>
   <div class="workspace">
     <aside class="sidebar" aria-label="Radiograph views">
@@ -57,7 +58,18 @@ refreshIcons();
 function toast(message){clearTimeout(toastTimer);$('#toast').innerHTML=`${icon('CheckCircle2')}<span>${esc(message)}</span>`;$('#toast').classList.add('visible');refreshIcons();toastTimer=setTimeout(()=>$('#toast').classList.remove('visible'),3600);}
 
 async function database(){return new Promise((resolve,reject)=>{const r=indexedDB.open('x3d-workspace',1);r.onupgradeneeded=()=>r.result.createObjectStore('study');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});}
-async function save(){clearTimeout(saveTimer);saveTimer=setTimeout(async()=>{try{const db=await database();const tx=db.transaction('study','readwrite');tx.objectStore('study').put({...state,tab:'model',auto:false,selectedBone:null},'current');tx.oncomplete=()=>{db.close();$('#save-status').textContent='Saved on this device';};tx.onerror=()=>{db.close();$('#save-status').textContent='Session only · storage unavailable';};}catch{$('#save-status').textContent='Session only · storage unavailable';}},300);}
+let persistenceQueue=Promise.resolve();
+function persistStudy(){
+  const snapshot=structuredClone({...state,tab:'model',auto:false,selectedBone:null});
+  persistenceQueue=persistenceQueue.catch(()=>{}).then(async()=>{
+    const db=await database();
+    try{await new Promise((resolve,reject)=>{const tx=db.transaction('study','readwrite');tx.objectStore('study').put(snapshot,'current');tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||new Error('Save aborted'));});}
+    finally{db.close();}
+  });
+  return persistenceQueue;
+}
+function save(){clearTimeout(saveTimer);saveTimer=setTimeout(()=>{persistStudy().then(()=>{$('#save-status').textContent='Saved on this device';}).catch(()=>{$('#save-status').textContent='Session only · storage unavailable';});},300);}
+
 async function restore(){try{const db=await database();const s=await new Promise((resolve,reject)=>{const r=db.transaction('study').objectStore('study').get('current');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});db.close();if(s&&['demo','upload'].includes(s.source)&&Array.isArray(s.views)){Object.assign(state,s,{auto:false,tab:'model',selectedBone:null});return true;}}catch{}return false;}
 
 function renderViews(){
@@ -78,19 +90,19 @@ function updateWorkspace(){
   $('#side-marker').textContent=state.left?'L':'R';
   $('#model-badge-text').textContent=isDemo?'ANATOMY ATLAS':'REFERENCE ATLAS · NOT RECONSTRUCTED';
   $('#bone-count').textContent=`${currentKind()==='radius'?29:27} bones`;
-  $('#viewer-status-text').textContent=hasModel?'Interactive 3D illustration':'Waiting for reference views';
+  $('#viewer-status-text').textContent=hasModel?(viewer?'Interactive 3D illustration':'3D unavailable · references available'):'Waiting for reference views';
   $('#summary-title').textContent=isDemo?(c.id==='normal'?'27 bones. One remarkable hand.':'Small bones. A different perspective.'):'Your images. A place to understand them.';
   $('#summary-text').textContent=isDemo?'Explore how an injury sits within the anatomy. Rotate, zoom, and look a little closer.':'Explore an anatomy atlas alongside your reference images. Automated image analysis is not connected.';
   $('.learn-button').innerHTML=(isDemo?'Understand this '+(c.id==='normal'?'anatomy':'injury'):'About this illustration')+icon('ArrowUpRight');
   $('#canvas-container').style.visibility=hasModel?'visible':'hidden';
-  $('.viewer-bottom').hidden=!hasModel;$('.viewport-corner').hidden=!hasModel;$('.model-badge').hidden=!hasModel;
+  $('.viewer-bottom').hidden=!hasModel||!viewer;$('.viewport-corner').hidden=!hasModel;$('.model-badge').hidden=!hasModel;
   $('.illustration-label').hidden=!hasModel;
   $('#empty-state').hidden=hasModel;
   $('#annotation-title').textContent=BONE_INFO[currentKind()]?.title||'Hand anatomy';
   $('#annotation-subtitle').innerHTML='Illustrated fracture'+icon('ArrowUpRight');
   renderViews();updateAnnotation();updateCamera();renderEmpty();renderReport();refreshIcons();save();
 }
-function updateAnnotation(){$('#annotation').hidden=!(state.labels&&state.highlight&&state.stage==='model'&&currentKind()!=='normal'&&state.source==='demo'&&state.tab!=='report'&&!state.auto);}
+function updateAnnotation(){$('#annotation').hidden=!(viewer&&state.labels&&state.highlight&&state.stage==='model'&&currentKind()!=='normal'&&state.source==='demo'&&state.tab!=='report'&&!state.auto);}
 function updateCamera(){document.querySelectorAll('[data-action="camera"]').forEach(el=>el.classList.toggle('active',el.dataset.view===state.camera));$('.viewport-corner > span:last-child').textContent=`${currentKind()==='radius'?'WRIST':'HAND'} · ${state.camera.toUpperCase()}`;}
 function renderEmpty(){
   if(state.stage==='model')return;
@@ -102,7 +114,7 @@ async function loadCase(id){
   const epoch=++studyEpoch;state.source='demo';state.caseId=id;state.stage='model';state.notes='';state.left=false;state.selectedBone=null;state.camera='oblique';state.tab='model';
   $('#loading-state').hidden=false;
   await new Promise(r=>setTimeout(r,50));if(epoch!==studyEpoch)return;
-  try{if(!syntheticCache.has(id))syntheticCache.set(id,makeSyntheticViews(id));state.views=structuredClone(syntheticCache.get(id));viewer?.load(id);state.highlight=true;state.opacity=1;syncDisplay();}catch(e){console.error(e);showViewerFailure();}
+  try{if(!syntheticCache.has(id))syntheticCache.set(id,exampleViews(id));state.views=structuredClone(syntheticCache.get(id));viewer?.load(id);state.highlight=true;state.opacity=1;syncDisplay();}catch(e){console.error(e);showViewerFailure();}
   $('#loading-state').hidden=true;setTab('model');$('#bone-detail').hidden=true;updateWorkspace();
 }
 
@@ -119,7 +131,7 @@ function closeModal(){const root=$('#modal-root');root.innerHTML='';modalKind=nu
 function modal(title,body,kind='generic',wide=false){lastFocus=document.activeElement;modalKind=kind;$('#modal-root').innerHTML=`<div class="modal-overlay"><section class="modal ${wide?'modal-wide':''}" role="dialog" aria-modal="true" aria-label="${esc(title)}" tabindex="-1"><div class="modal-heading"><div class="eyebrow">X3D WORKSPACE</div><button class="icon-button" data-action="close-modal" aria-label="Close dialog">${icon('X')}</button></div>${body}</section></div>`;document.body.classList.add('modal-open');refreshIcons();$('.modal').focus();}
 function openExamples(){
   modal('Example studies',`<div class="modal-title"><h2>A different perspective.</h2><p>Explore a synthetic case. Get to know the anatomy.</p></div><div class="example-grid">${CASES.map((c,i)=>`<button class="example-card" data-action="load-case" data-case="${c.id}"><div class="example-image"><img src="${syntheticCache.get(c.id)?.[0]?.src||state.views.find(v=>v.synthetic)?.src||''}" alt="Synthetic ${c.region.toLowerCase()} anatomy illustration" /><span class="example-index">0${i+1}</span><span class="example-tag">${c.tag}</span></div><div class="example-description"><h3>${c.title}${icon('ArrowUpRight')}</h3><p>${c.subtitle}</p><span>2 synthetic views<span>·</span>Interactive atlas</span></div></button>`).join('')}</div><div class="modal-footnote">${icon('Info')}These examples use generated atlas projections and prewritten reports. No patient images or AI diagnoses.</div>`,'examples',true);
-  setTimeout(()=>{if(modalKind!=='examples'||!viewer)return;for(const c of CASES){try{if(!syntheticCache.has(c.id))syntheticCache.set(c.id,makeSyntheticViews(c.id));const el=$(`[data-case="${c.id}"] img`);if(el)el.src=syntheticCache.get(c.id)[0].src;}catch{}}},80);
+  setTimeout(()=>{if(modalKind!=='examples')return;for(const c of CASES){try{if(!syntheticCache.has(c.id))syntheticCache.set(c.id,exampleViews(c.id));const el=$(`[data-case="${c.id}"] img`);if(el)el.src=syntheticCache.get(c.id)[0].src;}catch{}}},80);
 }
 function openAbout(){modal('About X3D',`<div class="about-symbol">${icon('Box')}</div><div class="modal-title"><div class="eyebrow">A NEW PERSPECTIVE ON ANATOMY</div><h2>See more. Understand more.</h2><p>X3D brings reference images and interactive anatomy into one calm workspace.</p></div><div class="about-details"><div>${icon('Hand')}<div><h3>Explore the anatomy</h3><p>Rotate an approximate hand or wrist atlas. Select bones, change your perspective, and explore illustrative injuries.</p></div></div><div>${icon('FileText')}<div><h3>Learn the language</h3><p>Example studies pair synthetic projections with prewritten reports and plain-language explanations.</p></div></div><div>${icon('ShieldCheck')}<div><h3>Know what the model knows</h3><p>This prototype does not analyze radiographs, detect fractures, measure anatomy, or reconstruct patient-specific geometry. An atlas cannot resolve clinical uncertainty.</p></div></div></div><a class="source-link" href="https://www.nibib.nih.gov/science-education/science-topics/computed-tomography-ct" target="_blank" rel="noopener noreferrer">Learn how 3D CT imaging works · NIH${icon('ExternalLink')}</a><div class="modal-footnote">Inspired by the X3D concept. Independently recreated; not affiliated with the original project.</div>`,'about');}
 function openModelInfo(){modal('Model information',`<div class="modal-title"><div class="eyebrow">TRANSPARENCY, BY DESIGN</div><h2>A model with clear limits.</h2><p>What you see is an illustrative anatomy atlas.</p></div><div class="evidence-table"><div><span>Geometry source</span><strong>Procedural anatomy atlas</strong></div><div><span>Patient-specific reconstruction</span><strong class="muted">Not performed</strong></div><div><span>Fit to supplied projections</span><strong class="muted">Not performed</strong></div><div><span>Automated fracture detection</span><strong class="muted">Not connected</strong></div><div><span>Measurements & confidence</span><strong class="muted">Not calibrated</strong></div><div><span>Report source</span><strong>${state.source==='demo'?'Prewritten synthetic case':'User-authored notes'}</strong></div></div><div class="research-note">${icon('View')}<div><h3>What about the next X-ray angle?</h3><p>Additional-view planning requires a validated model of uncertainty and image acquisition geometry. This prototype does not recommend clinical imaging views.</p></div></div><div class="modal-footnote">Two views constrain anatomy, but do not uniquely determine a 3D volume. Hidden surfaces and fracture detail in this atlas are illustrative.</div>`,'model-info');}
@@ -169,7 +181,15 @@ const actions={
   'export-glb':async()=>{if(state.stage!=='model'||!viewer)return toast('Open an anatomy atlas first.');download(await viewer.glb(),'x3d-illustrative-atlas.glb');toast('3D atlas exported.');},
   'export-report':()=>{download(new Blob([reportText()],{type:'text/plain'}),'x3d-educational-report.txt');toast('Educational report exported.');},
   'export-study':()=>{download(new Blob([JSON.stringify({format:'x3d-educational-study',version:1,disclaimer:'Illustrative atlas only. No automated interpretation or patient-specific reconstruction.',...state},null,2)],{type:'application/json'}),'x3d-reference-study.json');toast('Study with reference images exported.');},
-  'clear-storage':async()=>{clearTimeout(saveTimer);try{const db=await database();const tx=db.transaction('study','readwrite');tx.objectStore('study').clear();await new Promise((resolve,reject)=>{tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});db.close();++studyEpoch;state.source='upload';state.views=[];state.stage='empty';state.notes='';state.selectedBone=null;closeModal();setTab('model');$('#bone-detail').hidden=true;updateWorkspace();$('#save-status').textContent='Saved workspace cleared';toast('Saved images and notes cleared.');}catch{toast('Browser storage could not be cleared.');}},
+  'clear-storage':async()=>{
+    clearTimeout(saveTimer);
+    try{
+      ++studyEpoch;Object.assign(state,{source:'upload',views:[],stage:'empty',notes:'',selectedBone:null});
+      await persistStudy();
+      closeModal();setTab('model');$('#bone-detail').hidden=true;updateWorkspace();
+      $('#save-status').textContent='Saved workspace cleared';toast('Saved images and notes cleared.');
+    }catch{toast('Browser storage could not be cleared.');}
+  },
 };
 
 document.addEventListener('click',async e=>{
