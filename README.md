@@ -29,9 +29,10 @@ This project is MIT-licensed. Third-party notices are available in [public/third
 
 ## What works
 
+- The home workspace opens on an illustrated example. New study opens a draft upload dialog: choose, drop, or paste 2–6 images from one body area, review thumbnails, and click Open study. Closing the dialog preserves the current study.
 - Three interactive example studies: fifth metacarpal fracture, distal radius fracture, and hand anatomy.
 - Procedural 3D hand and wrist atlases with bone selection, orbit/pan/zoom, frontal/lateral/oblique camera presets, opacity, highlight, annotations, auto-rotation, and fullscreen.
-- Image upload by browse, drag/drop, and clipboard paste. Supports PNG, JPEG, and WEBP, up to 12 MB per file and six views. DICOM is not supported.
+- Image upload by browse, drag/drop, and clipboard paste. Supports PNG, JPEG, and WEBP, up to 25 MB per file and six views. DICOM is not supported.
 - Projection labeling and full image previews. Imported images are resized to a maximum edge of 2,400 pixels for local reference storage; original dimensions are displayed, and the original file is not modified.
 - Resident-oriented mock reports and plain-language explanations for the synthetic cases. Uploaded studies support user-authored notes.
 - Current study and images persist in browser IndexedDB; settings allow clearing saved images and notes. No images or notes are sent to a server. Hosted site assets and fonts still require network access.

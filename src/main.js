@@ -3,6 +3,7 @@ import { AnatomyViewer } from './viewer.js';
 import { CASES } from './cases.js';
 import { BONE_INFO } from './anatomy.js';
 import './style.css';
+import './new-study.css';
 
 const icons={Plus,X,Upload,ArrowUpRight,ArrowLeft,ArrowRight,ChevronDown,ChevronRight,Check,CheckCheck,Box,FileText,SlidersHorizontal,Download,Info,RotateCcw,Move,ScanLine,Expand,Minus,CircleHelp,ShieldCheck,Layers,Eye,Copy,CheckCircle2,Settings2,Image,Aperture,Circle,Hand,MousePointer2,ExternalLink,MoreHorizontal,ArrowDownToLine,Sparkles,FolderPlus,LockKeyhole,View,Rotate3d,Github};
 const $=s=>document.querySelector(s);
@@ -11,6 +12,9 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 function refreshIcons(){createIcons({icons,attrs:{'stroke-width':1.65}});}
 const state={source:'demo',caseId:'metacarpal',views:[],tab:'model',stage:'model',camera:'oblique',highlight:true,labels:true,auto:false,opacity:1,audience:'resident',notes:'',selectedBone:null,anatomy:'metacarpal',left:false};
 let viewer,saveTimer,toastTimer,lastFocus,studyEpoch=0,modalKind=null;
+let studyDraft=null;
+const MAX_IMAGE_BYTES=25*1024*1024;
+const MAX_VIEWS=6;
 const syntheticCache=new Map();
 function exampleViews(id){return ['PA','Oblique'].map(projection=>({id:crypto.randomUUID(),name:`Illustrative ${projection.toLowerCase()} view`,projection,src:`/examples/${id}-${projection.toLowerCase()}.png`,width:360,height:470,synthetic:true}));}
 const caseData=()=>CASES.find(c=>c.id===state.caseId)||CASES[0];
@@ -27,7 +31,7 @@ $('#app').innerHTML=`
   <div class="workspace">
     <aside class="sidebar" aria-label="Radiograph views">
       <div class="sidebar-heading"><h2>Views <span id="view-count">02</span></h2><button class="icon-button" data-action="upload" aria-label="Add radiograph view">${icon('Plus')}</button></div>
-      <button class="upload-zone" id="drop-zone" data-action="upload"><span class="upload-icon">${icon('Upload')}</span><strong>Drop your X-rays here</strong><span>or <u>browse files</u> to upload</span><small>PNG, JPG, WEBP · up to 12 MB each</small></button>
+      <button class="upload-zone" id="drop-zone" data-action="upload"><span class="upload-icon">${icon('Upload')}</span><strong>Drop your X-rays here</strong><span>or <u>browse files</u> to upload</span><small>PNG, JPG, WEBP · up to 25 MB each</small></button>
       <input type="file" id="file-input" accept="image/png,image/jpeg,image/webp" multiple hidden />
       <div class="views-list" id="views-list"></div>
       <div class="views-note">${icon('Info')}<span id="views-note">Synthetic projections for this example.</span></div>
@@ -35,7 +39,7 @@ $('#app').innerHTML=`
       <div class="sidebar-bottom"><button class="new-study" data-action="new">${icon('FolderPlus')}New study${icon('Plus')}</button><button class="settings-button" data-action="settings">${icon('Settings2')}Workspace settings</button><div class="local-note">${icon('LockKeyhole')}Images stay on this device</div></div>
     </aside>
     <main class="main">
-      <div class="study-heading"><div><div class="eyebrow"><span id="study-number">EXAMPLE STUDY 001</span><span class="eyebrow-divider">/</span><span id="study-type">UPPER EXTREMITY</span></div><h1 id="study-title">Right hand<span class="title-dot">.</span></h1><div class="study-subtitle" id="study-subtitle">A closer look. A clearer understanding.</div></div><div class="study-heading-right"><span class="demo-tag" id="demo-tag">${icon('Sparkles')}Educational example</span><button class="text-button subtle" data-action="examples">Change study${icon('ChevronDown')}</button></div></div>
+      <div class="study-heading"><div><div class="eyebrow"><span id="study-number">EXAMPLE STUDY 001</span><span class="eyebrow-divider">/</span><span id="study-type">UPPER EXTREMITY</span></div><h1 id="study-title">Right hand<span class="title-dot">.</span></h1><div class="study-subtitle" id="study-subtitle">A closer look. A clearer understanding.</div></div><div class="study-heading-right"><span class="demo-tag" id="demo-tag">${icon('Sparkles')}Educational example</span><button class="text-button new-study-trigger" data-action="new">${icon('Plus')}New study</button></div></div>
       <section class="viewer-shell" aria-label="Anatomy workspace">
         <div class="viewer-toolbar"><div class="tab-group" role="tablist" aria-label="Study view"><button role="tab" aria-selected="true" class="active" id="model-tab" data-action="tab-model">${icon('Box')}3D model</button><button role="tab" aria-selected="false" id="report-tab" data-action="tab-report">${icon('FileText')}Report<span class="tab-dot"></span></button></div><div class="toolbar-right"><span class="illustration-label"><span></span>Illustrative model</span><button class="icon-button" data-action="display" aria-label="Display options" title="Display options">${icon('SlidersHorizontal')}</button><div class="export-wrap"><button class="export-button" data-action="export">${icon('Download')}<span>Export</span>${icon('ChevronDown')}</button><div id="export-menu" class="popover export-menu" hidden><div class="popover-label">EXPORT STUDY</div><button data-action="export-image">${icon('Image')}Model image<span>PNG</span></button><button data-action="export-glb">${icon('Box')}3D illustration<span>GLB</span></button><button data-action="export-report">${icon('FileText')}Educational report<span>TXT</span></button><button data-action="export-study">${icon('Download')}Portable study<span>JSON</span></button></div></div></div></div>
         <div class="viewport" id="viewport"><div class="canvas-container" id="canvas-container"></div><div class="viewport-grain"></div><div class="viewport-corner"><span class="orientation-label" id="side-marker">R</span><span>HAND · OBLIQUE</span></div><div class="model-badge"><span></span><span id="model-badge-text">ANATOMY ATLAS</span></div>
@@ -127,8 +131,55 @@ function renderReport(){
 }
 function reportText(){const c=caseData();return `X3D — EDUCATIONAL ${state.source==='demo'?'MOCK REPORT':'REFERENCE STUDY'}\n${currentRegion()}\n${state.views.length} reference views\n\n${state.source==='demo'?`SYNTHETIC CASE: ${c.title}\n\nFINDINGS\n${c.findings}\n\nIMPRESSION\n${c.impression}\n\nPLAIN LANGUAGE\n${c.patient}`:`Analysis: Not performed.\nThe atlas is manually selected and is not reconstructed from the supplied images.\n\nUSER-AUTHORED NOTES\n${state.notes||'No notes supplied.'}`}\n\nEducational illustration only. Not for diagnosis or treatment planning.\nAtlas units are arbitrary; no calibrated measurements are available.\n`;}
 
-function closeModal(){const root=$('#modal-root');root.innerHTML='';modalKind=null;document.body.classList.remove('modal-open');lastFocus?.focus();}
-function modal(title,body,kind='generic',wide=false){lastFocus=document.activeElement;modalKind=kind;$('#modal-root').innerHTML=`<div class="modal-overlay"><section class="modal ${wide?'modal-wide':''}" role="dialog" aria-modal="true" aria-label="${esc(title)}" tabindex="-1"><div class="modal-heading"><div class="eyebrow">X3D WORKSPACE</div><button class="icon-button" data-action="close-modal" aria-label="Close dialog">${icon('X')}</button></div>${body}</section></div>`;document.body.classList.add('modal-open');refreshIcons();$('.modal').focus();}
+function closeModal(){studyDraft=null;const root=$('#modal-root');root.innerHTML='';modalKind=null;document.body.classList.remove('modal-open');lastFocus?.focus();}
+function modal(title,body,kind='generic',wide=false){
+  if(kind!=='new-study')studyDraft=null;
+  lastFocus=document.activeElement;modalKind=kind;
+  const heading=kind==='new-study'?'':`<div class="modal-heading"><div class="eyebrow">X3D WORKSPACE</div><button class="icon-button" data-action="close-modal" aria-label="Close dialog">${icon('X')}</button></div>`;
+  $('#modal-root').innerHTML=`<div class="modal-overlay"><section class="modal ${wide?'modal-wide':''}" role="dialog" aria-modal="true" aria-label="${esc(title)}" tabindex="-1">${heading}${body}</section></div>`;
+  document.body.classList.add('modal-open');refreshIcons();$('.modal').focus();
+}
+
+function openNewStudy(){
+  studyDraft={views:[],pending:0,message:'',queue:Promise.resolve()};
+  modal('New study',`<header class="study-dialog-header"><span class="study-dialog-icon">${icon('Upload')}</span><div><h2>New study</h2><p>Two or more views. One body area.</p></div><button class="icon-button" data-action="close-modal" aria-label="Close new study">${icon('X')}</button></header><div class="study-dialog-body"><div class="study-drop-zone" id="study-drop-zone">${icon('Upload')}<h3>Drop your X-rays here</h3><p>or paste from your clipboard</p><button class="study-choose-button" data-action="choose-study-images">Choose images</button><input type="file" id="study-file-input" accept="image/png,image/jpeg,image/webp" multiple hidden /></div><div class="study-file-limits">PNG, JPEG or WebP · up to 6 images · 25 MB each</div><div id="study-draft-views" class="study-draft-views" aria-label="Selected images"></div><div id="study-draft-message" class="study-draft-message" role="status" aria-live="polite"></div></div><footer class="study-dialog-footer"><span>${icon('LockKeyhole')}Images stay on this device</span><button class="study-open-button" data-action="open-study" disabled>Open study${icon('ArrowRight')}</button></footer>`,'new-study');
+  $('.modal').classList.add('study-dialog');$('.modal-overlay').classList.add('new-study-overlay');
+  renderStudyDraft();
+}
+function renderStudyDraft(){
+  if(modalKind!=='new-study'||!studyDraft)return;
+  const draft=studyDraft;
+  $('.study-dialog').classList.toggle('has-images',draft.views.length>0);
+  $('#study-draft-views').innerHTML=draft.views.map((v,i)=>`<article class="study-draft-card"><img src="${v.src}" alt="Selected reference view ${i+1}" /><div><strong>${esc(v.name)}</strong><span>View ${i+1} · ${v.width} × ${v.height}</span></div><button class="icon-button" data-action="remove-draft-view" data-id="${v.id}" aria-label="Remove selected view ${i+1}">${icon('X')}</button></article>`).join('');
+  const status=$('#study-draft-message');
+  status.textContent=draft.pending?'Preparing your images…':draft.message||(draft.views.length===1?'Add one more view to open your study.':draft.views.length>=2?`${draft.views.length} reference views ready.`:'');
+  status.classList.toggle('has-error',!!draft.message&&!draft.pending);
+  $('[data-action="open-study"]').disabled=draft.views.length<2||draft.pending>0;
+  refreshIcons();
+}
+function addDraftFiles(files){
+  const draft=studyDraft;if(!draft)return Promise.resolve();
+  const selected=[...files];draft.pending++;draft.message='';renderStudyDraft();
+  draft.queue=draft.queue.then(async()=>{
+    let rejected=0;
+    for(const file of selected){
+      if(studyDraft!==draft)return;
+      if(draft.views.length>=MAX_VIEWS){rejected++;continue;}
+      const view=await readReferenceImage(file);
+      if(studyDraft!==draft)return;
+      if(view)draft.views.push(view);else rejected++;
+    }
+    if(rejected)draft.message=`${rejected} ${rejected===1?'file was':'files were'} skipped. Use PNG, JPEG or WebP up to 25 MB each, with a maximum of 6 images.`;
+  }).catch(()=>{draft.message='An image could not be opened. Try a PNG, JPEG or WebP file.';}).finally(()=>{draft.pending--;if(studyDraft===draft)renderStudyDraft();});
+  return draft.queue;
+}
+function openDraftStudy(){
+  if(!studyDraft||studyDraft.pending||studyDraft.views.length<2)return;
+  const views=studyDraft.views;
+  ++studyEpoch;Object.assign(state,{source:'upload',views,stage:'setup',tab:'model',notes:'',selectedBone:null,anatomy:'normal',left:false});
+  closeModal();setTab('model');$('#bone-detail').hidden=true;updateWorkspace();
+  toast(`Study opened with ${views.length} reference views.`);
+}
 function openExamples(){
   modal('Example studies',`<div class="modal-title"><h2>A different perspective.</h2><p>Explore a synthetic case. Get to know the anatomy.</p></div><div class="example-grid">${CASES.map((c,i)=>`<button class="example-card" data-action="load-case" data-case="${c.id}"><div class="example-image"><img src="${syntheticCache.get(c.id)?.[0]?.src||state.views.find(v=>v.synthetic)?.src||''}" alt="Synthetic ${c.region.toLowerCase()} anatomy illustration" /><span class="example-index">0${i+1}</span><span class="example-tag">${c.tag}</span></div><div class="example-description"><h3>${c.title}${icon('ArrowUpRight')}</h3><p>${c.subtitle}</p><span>2 synthetic views<span>·</span>Interactive atlas</span></div></button>`).join('')}</div><div class="modal-footnote">${icon('Info')}These examples use generated atlas projections and prewritten reports. No patient images or AI diagnoses.</div>`,'examples',true);
   setTimeout(()=>{if(modalKind!=='examples')return;for(const c of CASES){try{if(!syntheticCache.has(c.id))syntheticCache.set(c.id,exampleViews(c.id));const el=$(`[data-case="${c.id}"] img`);if(el)el.src=syntheticCache.get(c.id)[0].src;}catch{}}},80);
@@ -141,16 +192,32 @@ function showBone(data){state.selectedBone=data;$('#bone-detail').innerHTML=`<bu
 function openPreview(id){const v=state.views.find(x=>x.id===id);if(!v)return;modal('Reference image preview',`<div class="image-modal-title"><div><h2>${esc(v.name)}</h2><p>${esc(v.projection)} projection · ${v.width} × ${v.height} · ${v.synthetic?'Synthetic example':'Local reference image'}</p></div></div><div class="image-preview-stage"><img src="${v.src}" alt="${esc(v.name)}" /></div><div class="modal-footnote">${v.synthetic?'Generated from the illustrative 3D atlas. This is not an acquired radiograph.':'Uploaded reference only. No automated interpretation has been performed.'}</div>`,'preview',true);}
 function download(blob,name){if(!blob){toast('This export is not available yet.');return;}const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),5000);}
 
+async function readReferenceImage(file){
+  if(!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>MAX_IMAGE_BYTES)return null;
+  try{
+    const bitmap=await createImageBitmap(file);
+    if(bitmap.width>20000||bitmap.height>20000||bitmap.width*bitmap.height>80_000_000){bitmap.close();return null;}
+    const scale=Math.min(1,2400/Math.max(bitmap.width,bitmap.height));
+    const canvas=document.createElement('canvas');canvas.width=Math.round(bitmap.width*scale);canvas.height=Math.round(bitmap.height*scale);
+    canvas.getContext('2d').drawImage(bitmap,0,0,canvas.width,canvas.height);
+    const view={id:crypto.randomUUID(),name:file.name,projection:'Unspecified',src:canvas.toDataURL('image/jpeg',.92),width:bitmap.width,height:bitmap.height,synthetic:false};
+    bitmap.close();return view;
+  }catch{return null;}
+}
 async function handleFiles(files){
-  const epoch=studyEpoch;let added=[];let rejected=0;
-  for(const file of [...files]){
-    if(!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>12*1024*1024){rejected++;continue;}
-    if(added.length+(state.source==='demo'?0:state.views.length)>=6){rejected++;continue;}
-    try{const bitmap=await createImageBitmap(file);if(bitmap.width>20000||bitmap.height>20000||bitmap.width*bitmap.height>80_000_000){bitmap.close();rejected++;continue;}const scale=Math.min(1,2400/Math.max(bitmap.width,bitmap.height));const canvas=document.createElement('canvas');canvas.width=Math.round(bitmap.width*scale);canvas.height=Math.round(bitmap.height*scale);canvas.getContext('2d').drawImage(bitmap,0,0,canvas.width,canvas.height);added.push({id:crypto.randomUUID(),name:file.name,projection:'Unspecified',src:canvas.toDataURL('image/jpeg',.92),width:bitmap.width,height:bitmap.height,synthetic:false});bitmap.close();}catch{rejected++;}
+  const selected=[...files];
+  if(modalKind==='new-study'){await addDraftFiles(selected);return;}
+  if(modalKind)return;
+  if(state.source==='demo'){openNewStudy();await addDraftFiles(selected);return;}
+  const epoch=studyEpoch;const added=[];let rejected=0;
+  for(const file of selected){
+    if(added.length+state.views.length>=MAX_VIEWS){rejected++;continue;}
+    const view=await readReferenceImage(file);
+    if(epoch!==studyEpoch)return;
+    if(view)added.push(view);else rejected++;
   }
-  if(epoch!==studyEpoch)return;
-  if(added.length){if(state.source==='demo'){state.source='upload';state.views=[];state.notes='';state.stage='setup';state.anatomy='normal';state.left=false;setTab('model');}state.views.push(...added);$('#bone-detail').hidden=true;updateWorkspace();toast(`${added.length} reference ${added.length===1?'image':'images'} added${rejected?' · some files were skipped':''}.`);}
-  else if(rejected)toast('Use PNG, JPG, or WEBP under 12 MB. Maximum 6 views.');
+  if(added.length){state.views.push(...added);if(state.stage==='empty')state.stage='setup';$('#bone-detail').hidden=true;updateWorkspace();toast(`${added.length} reference ${added.length===1?'image':'images'} added${rejected?' · some files were skipped':''}.`);}
+  else if(rejected)toast('Use PNG, JPG, or WEBP under 25 MB. Maximum 6 views.');
   $('#file-input').value='';
 }
 
@@ -158,9 +225,12 @@ function syncDisplay(){$('#highlight-toggle').checked=state.highlight;$('#labels
 function showViewerFailure(){$('#loading-state').hidden=true;$('#canvas-container').innerHTML=`<div class="webgl-error"><h3>3D rendering is unavailable</h3><p>Enable hardware acceleration in your browser to explore the anatomy. Reference images and reports are still available.</p></div>`;}
 
 const actions={
-  home:()=>{closeModal();openExamples();},examples:openExamples,about:openAbout,settings:openSettings,'model-info':openModelInfo,setup:openSetup,
-  upload:()=>$('#file-input').click(),'close-modal':closeModal,
-  new:()=>{++studyEpoch;Object.assign(state,{source:'upload',views:[],stage:'empty',tab:'model',notes:'',selectedBone:null});setTab('model');$('#bone-detail').hidden=true;updateWorkspace();toast('New study ready. Add your reference views.');},
+  home:async()=>{closeModal();await loadCase('metacarpal');},examples:openExamples,about:openAbout,settings:openSettings,'model-info':openModelInfo,setup:openSetup,
+  upload:()=>{if(state.source==='demo')openNewStudy();else $('#file-input').click();},'close-modal':closeModal,
+  'choose-study-images':()=>$('#study-file-input').click(),
+  'open-study':openDraftStudy,
+  'remove-draft-view':el=>{if(studyDraft){studyDraft.views=studyDraft.views.filter(v=>v.id!==el.dataset.id);studyDraft.message='';renderStudyDraft();}},
+  new:openNewStudy,
   'load-case':async el=>{closeModal();await loadCase(el.dataset.case);toast('Example study opened.');},
   preview:el=>openPreview(el.dataset.id),
   'remove-view':el=>{state.views=state.views.filter(v=>v.id!==el.dataset.id);if(state.source==='upload'&&!state.views.length)state.stage='empty';updateWorkspace();},
@@ -200,10 +270,10 @@ document.addEventListener('click',async e=>{
 });
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){if(modalKind)closeModal();$('#display-panel').hidden=true;$('#export-menu').hidden=true;$('#bone-detail').hidden=true;}
-  if(e.key==='Tab'&&modalKind){const modalEl=$('.modal'),focusables=[...modalEl.querySelectorAll('button,a[href],select,input,textarea,[tabindex="0"]')].filter(e=>!e.disabled);if(!focusables.length)return;const first=focusables[0],last=focusables.at(-1);if(e.shiftKey&&(document.activeElement===first||document.activeElement===modalEl)){e.preventDefault();last.focus();}else if(!e.shiftKey&&(document.activeElement===last||document.activeElement===modalEl)){e.preventDefault();first.focus();}}
+  if(e.key==='Tab'&&modalKind){const modalEl=$('.modal'),focusables=[...modalEl.querySelectorAll('button,a[href],select,input,textarea,[tabindex="0"]')].filter(e=>!e.disabled&&e.getClientRects().length>0);if(!focusables.length)return;const first=focusables[0],last=focusables.at(-1);if(e.shiftKey&&(document.activeElement===first||document.activeElement===modalEl)){e.preventDefault();last.focus();}else if(!e.shiftKey&&(document.activeElement===last||document.activeElement===modalEl)){e.preventDefault();first.focus();}}
 });
 document.addEventListener('change',e=>{
-  if(e.target.id==='file-input')handleFiles(e.target.files);
+  if(['file-input','study-file-input'].includes(e.target.id)){const input=e.target;handleFiles(input.files).finally(()=>{input.value='';});}
   if(e.target.dataset.projection){const v=state.views.find(v=>v.id===e.target.dataset.projection);if(v)v.projection=e.target.value;save();}
   if(e.target.id==='highlight-toggle'){state.highlight=e.target.checked;syncDisplay();save();}
   if(e.target.id==='labels-toggle'){state.labels=e.target.checked;syncDisplay();save();}
@@ -213,10 +283,10 @@ document.addEventListener('input',e=>{if(e.target.id==='opacity-range'){state.op
 document.addEventListener('submit',e=>{if(e.target.id!=='atlas-form')return;e.preventDefault();state.anatomy=$('#anatomy-select').value;state.left=$('#side-select').value==='left';state.stage='model';state.camera='oblique';state.opacity=1;state.highlight=true;viewer?.load(state.anatomy,state.left);syncDisplay();closeModal();updateWorkspace();toast('Reference atlas opened. It is not fitted to your images.');});
 document.addEventListener('paste',e=>{if(['INPUT','TEXTAREA'].includes(document.activeElement?.tagName))return;const files=[...e.clipboardData.items].filter(x=>x.kind==='file').map(x=>x.getAsFile()).filter(Boolean);if(files.length){e.preventDefault();handleFiles(files);}});
 let dragDepth=0;
-document.addEventListener('dragenter',e=>{if(e.dataTransfer.types.includes('Files')){e.preventDefault();dragDepth++;$('#drop-zone').classList.add('dragging');}});
+document.addEventListener('dragenter',e=>{if(e.dataTransfer.types.includes('Files')){e.preventDefault();dragDepth++;$('#drop-zone').classList.add('dragging');$('#study-drop-zone')?.classList.add('dragging');}});
 document.addEventListener('dragover',e=>{if(e.dataTransfer.types.includes('Files'))e.preventDefault();});
-document.addEventListener('dragleave',()=>{dragDepth--;if(dragDepth<=0){dragDepth=0;$('#drop-zone').classList.remove('dragging');}});
-document.addEventListener('drop',e=>{if(e.dataTransfer.files.length){e.preventDefault();dragDepth=0;$('#drop-zone').classList.remove('dragging');handleFiles(e.dataTransfer.files);}});
+document.addEventListener('dragleave',()=>{dragDepth--;if(dragDepth<=0){dragDepth=0;$('#drop-zone').classList.remove('dragging');$('#study-drop-zone')?.classList.remove('dragging');}});
+document.addEventListener('drop',e=>{if(e.dataTransfer.files.length){e.preventDefault();dragDepth=0;$('#drop-zone').classList.remove('dragging');$('#study-drop-zone')?.classList.remove('dragging');handleFiles(e.dataTransfer.files);}});
 
 async function init(){
   try{viewer=new AnatomyViewer($('#canvas-container'),showBone,()=>{if(state.auto){state.auto=false;syncDisplay();}state.camera='custom';updateCamera();});}catch(error){console.error('3D initialization failed',error);showViewerFailure();}

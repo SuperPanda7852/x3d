@@ -1,0 +1,77 @@
+.study-heading-right .new-study-trigger{display:inline-flex;gap:6px;font-size:10px;padding:6px 9px;border:1px solid #dce5d5;background:#fdfef9;border-radius:5px;color:#718565}
+.new-study-trigger:hover{background:#eef4e7}
+.new-study-trigger svg{height:12px;width:12px}
+.new-study-overlay{background:#67787c60;backdrop-filter:blur(8px)}
+.study-dialog{width:650px;padding:0;border-radius:23px;border:1px solid #e3e9e5;background:#fcfefd;box-shadow:0 24px 85px #233b3b28;max-height:92dvh}
+.study-dialog>.modal-heading{display:none}
+.study-dialog-header{display:flex;align-items:center;gap:15px;padding:28px 30px 26px;border-bottom:1px solid #e9eeeb}
+.study-dialog-icon{height:49px;width:49px;display:grid;place-items:center;border:1px solid #e4eae6;background:#f6f9f7;border-radius:15px;box-shadow:0 1px 3px #283d2c04;color:#82908a;flex-shrink:0}
+.study-dialog-icon>svg{width:21px;height:21px}
+.study-dialog-header h2{font-family:'Manrope',sans-serif;font-size:23px;letter-spacing:-.7px;font-weight:650;color:#38443f;line-height:1.5}
+.study-dialog-header p{font-size:13px;color:#99a39c;margin-top:2px;line-height:1.7}
+.study-dialog-header>.icon-button{margin-left:auto;align-self:flex-start;margin-top:3px;width:35px;height:35px;flex-shrink:0;color:#8d9a93;border-radius:10px}
+.study-dialog-header>.icon-button>svg{height:19px;width:19px}
+.study-dialog-header>.icon-button:hover{background:#eff4f0}
+.study-dialog-body{padding:25px 30px 0}
+.study-drop-zone{min-height:216px;border:1.5px dashed #d8e2dc;border-radius:19px;background:radial-gradient(ellipse at 50% 50%,#f2f9f8,#f6faf8 70%);display:flex;align-items:center;justify-content:center;flex-direction:column;transition:background .2s,border-color .2s}
+.study-drop-zone>svg{height:27px;width:27px;color:#9aa9a4;margin-bottom:18px}
+.study-drop-zone h3{font-size:17px;font-weight:550;letter-spacing:-.3px;color:#495951;line-height:1.6}
+.study-drop-zone p{font-size:13px;color:#9aa8a1;line-height:1.8;margin-top:4px}
+.study-choose-button{font-size:13px;font-weight:600;color:#4b84aa;padding:9px 17px;background:#fbfefc;border:1px solid #e1ebe6;border-radius:9px;box-shadow:0 2px 4px #38555706;margin-top:15px;line-height:1.5}
+.study-choose-button:hover{color:#286991;background:#fff;border-color:#bfcfd0}
+.study-drop-zone.dragging{background:#e9f4f4;border-color:#86b5c1}
+.study-file-limits{text-align:center;font-size:11px;line-height:1.8;color:#adb6af;padding:14px 0 0}
+.study-draft-views{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.study-dialog.has-images .study-drop-zone{min-height:143px}
+.study-dialog.has-images .study-drop-zone>svg{width:20px;height:20px;margin-bottom:6px}
+.study-dialog.has-images .study-drop-zone h3{font-size:14px}
+.study-dialog.has-images .study-drop-zone p{font-size:11px;margin-top:0}
+.study-dialog.has-images .study-choose-button{font-size:11px;padding:6px 12px;margin-top:9px}
+.study-dialog.has-images .study-draft-views{margin-top:15px}
+.study-draft-card{display:flex;align-items:center;gap:10px;min-width:0;padding:9px;background:#f8fbf8;border:1px solid #e2eae4;border-radius:9px}
+.study-draft-card>img{height:52px;width:42px;object-fit:contain;background:#101b16;border-radius:4px;flex-shrink:0}
+.study-draft-card>div{min-width:0;flex:1}
+.study-draft-card strong{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:10px;font-weight:500;color:#607469;margin-bottom:6px}
+.study-draft-card>div>span{font-size:9px;color:#a0ada4;white-space:nowrap}
+.study-draft-card .icon-button{width:23px;height:23px;color:#a3b0a7;flex-shrink:0}
+.study-draft-card .icon-button>svg{width:12px;height:12px}
+.study-draft-message{font-size:11px;line-height:1.8;color:#8eaa99;min-height:24px;margin-top:12px}
+.study-draft-message.has-error{color:#a57d58}
+.study-dialog-footer{padding:29px 30px 28px;display:flex;align-items:center;justify-content:space-between;gap:15px}
+.study-dialog-footer>span{display:flex;align-items:center;gap:6px;font-size:11px;color:#a8b2ab}
+.study-dialog-footer>span>svg{width:12px;height:12px;color:#a9b5ac}
+.study-open-button{display:flex;align-items:center;justify-content:center;gap:12px;background:#477e9e;color:#fff;min-width:137px;padding:12px 17px;border-radius:10px;font-size:13px;font-weight:550;line-height:1.6;transition:background .2s}
+.study-open-button>svg{height:14px;width:14px}
+.study-open-button:hover{background:#376e8e;color:#fff}
+.study-open-button:disabled{opacity:1;background:#edf1f1;color:#a5b2b7;cursor:not-allowed}
+.study-open-button:disabled>svg{display:none}
+@media(max-width:700px){
+  .study-dialog{width:100%;border-radius:19px}
+  .study-dialog-header{padding:22px 20px 21px;gap:12px}
+  .study-dialog-icon{height:42px;width:42px;border-radius:12px}
+  .study-dialog-icon>svg{height:19px;width:19px}
+  .study-dialog-header h2{font-size:21px}
+  .study-dialog-header p{font-size:10px;line-height:1.7;max-width:190px}
+  .study-dialog-header>.icon-button{width:27px;height:27px;border-radius:7px;margin-top:0}
+  .study-dialog-header>.icon-button>svg{height:17px;width:17px}
+  .study-dialog-body{padding:20px 19px 0}
+  .study-drop-zone{min-height:214px;border-radius:15px}
+  .study-drop-zone>svg{width:24px;height:24px;margin-bottom:18px}
+  .study-drop-zone h3{font-size:16px}
+  .study-drop-zone p{font-size:12px}
+  .study-choose-button{font-size:12px;padding:8px 15px;border-radius:8px}
+  .study-file-limits{font-size:9px;padding-top:13px;line-height:1.9}
+  .study-dialog-footer{padding:23px 19px 23px;gap:9px}
+  .study-dialog-footer>span{font-size:9px;gap:4px;max-width:153px;line-height:1.8}
+  .study-dialog-footer>span>svg{width:10px;height:10px}
+  .study-open-button{min-width:111px;font-size:11px;padding:10px 12px;border-radius:8px;gap:7px}
+  .study-open-button>svg{width:12px;height:12px}
+  .study-draft-views{grid-template-columns:1fr;gap:8px}
+  .study-draft-card{gap:10px;padding:7px 9px}
+  .study-draft-card>img{height:43px;width:35px}
+  .study-draft-card strong{font-size:10px;margin-bottom:4px}
+  .study-draft-card>div>span{font-size:9px}
+  .study-draft-message{font-size:10px;line-height:1.9}
+  .study-heading-right .new-study-trigger{font-size:8px;padding:5px 7px;gap:4px;margin-top:8px}
+  .new-study-trigger svg{height:10px;width:10px}
+}

@@ -35,19 +35,51 @@ try{
   await click('examples');await page.locator('[data-case="normal"]').click();await page.waitForFunction(()=>document.querySelector('#sidebar-context').textContent.includes('Hand anatomy'));assert.equal(await page.locator('#annotation').isVisible(),false);
   console.log('PASS: switching all three example studies');
 
-  await click('new');assert.equal(await page.locator('.view-card').count(),0);assert.equal(await page.locator('#empty-state').isVisible(),true);
+  await click('new');assert.equal(await page.getByRole('dialog',{name:'New study',exact:true}).isVisible(),true);
+  assert.equal(await page.locator('.view-card').count(),2,'Opening New study preserves the example behind it');
+  assert.equal(await page.locator('[data-action="open-study"]').isDisabled(),true);
+  await page.waitForTimeout(250);await page.screenshot({path:'test-results/new-study.png',fullPage:false,animations:'disabled'});
+  await page.setViewportSize({width:390,height:844});
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'No upload dialog overflow on mobile');
+  await page.waitForTimeout(250);await page.screenshot({path:'test-results/new-study-mobile.png',fullPage:false,animations:'disabled'});
+  await page.setViewportSize({width:1440,height:1000});
   const fixture=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=280;c.height=420;const x=c.getContext('2d');x.fillStyle='#0d1712';x.fillRect(0,0,280,420);x.fillStyle='#b0c5b3';x.fillRect(110,45,45,325);return c.toDataURL('image/png').split(',')[1];});
-  await writeFile('test-results/reference.png',Buffer.from(fixture,'base64'));await page.locator('#file-input').setInputFiles(['test-results/reference.png','test-results/reference.png']);await page.waitForFunction(()=>document.querySelectorAll('.view-card').length===2);
+  await writeFile('test-results/reference.png',Buffer.from(fixture,'base64'));
+  const chooserPromise=page.waitForEvent('filechooser');await click('choose-study-images');const chooser=await chooserPromise;await chooser.setFiles('test-results/reference.png');
+  await page.waitForFunction(()=>document.querySelectorAll('.study-draft-card').length===1);
+  assert.equal(await page.locator('[data-action="open-study"]').isDisabled(),true);
+  await click('remove-draft-view');assert.equal(await page.locator('.study-draft-card').count(),0);
+  await page.evaluate(base64=>{const dt=new DataTransfer();dt.items.add(new File([Uint8Array.from(atob(base64),c=>c.charCodeAt(0))],'pasted-reference.png',{type:'image/png'}));document.dispatchEvent(new ClipboardEvent('paste',{clipboardData:dt,bubbles:true}));},fixture);
+  await page.waitForFunction(()=>document.querySelectorAll('.study-draft-card').length===1);
+  await page.evaluate(base64=>{const dt=new DataTransfer();dt.items.add(new File([Uint8Array.from(atob(base64),c=>c.charCodeAt(0))],'dropped-reference.png',{type:'image/png'}));document.querySelector('#study-drop-zone').dispatchEvent(new DragEvent('drop',{dataTransfer:dt,bubbles:true,cancelable:true}));},fixture);
+  await page.waitForFunction(()=>document.querySelectorAll('.study-draft-card').length===2&&!document.querySelector('[data-action="open-study"]').disabled);
+  await page.screenshot({path:'test-results/new-study-ready.png',fullPage:false,animations:'disabled'});
+  await page.keyboard.press('Escape');assert.equal(await page.getByRole('dialog').count(),0);
+  assert.equal(await page.locator('.view-card').count(),2);assert.match(await page.locator('#sidebar-context').innerText(),/Hand anatomy/);
+  await click('new');await page.locator('#study-file-input').setInputFiles(Array(7).fill('test-results/reference.png'));
+  await page.waitForFunction(()=>document.querySelectorAll('.study-draft-card').length===6&&document.querySelector('#study-draft-message').textContent.includes('skipped'));
+  await click('close-modal');
+  await click('new');await page.locator('#study-file-input').setInputFiles(['test-results/reference.png','test-results/reference.png']);
+  await page.waitForFunction(()=>!document.querySelector('[data-action="open-study"]').disabled);await click('open-study');
+  assert.equal(await page.getByRole('dialog').count(),0);assert.equal(await page.locator('.view-card').count(),2);
+  assert.equal(await page.locator('#empty-state').isVisible(),true);
+  console.log('PASS: New study dialog, browse/paste/drop, previews, minimum/maximum counts, cancellation, and opening a case');
   assert.match(await page.locator('#views-note').innerText(),/No automated analysis/);
   await page.locator('[data-projection]').first().selectOption('PA');await click('setup');await page.locator('#anatomy-select').selectOption('normal');await page.locator('#side-select').selectOption('left');await page.locator('#atlas-form button[type="submit"]').click();assert.match(await page.locator('#study-title').innerText(),/Left hand/);assert.match(await page.locator('#model-badge-text').innerText(),/NOT RECONSTRUCTED/);
   await click('tab-report');await page.locator('#report-notes').fill('Educational note: reference view added.');await page.waitForTimeout(800);await page.reload();await page.waitForFunction(()=>window.__x3dReady);await click('tab-report');assert.equal(await page.locator('#report-notes').inputValue(),'Educational note: reference view added.');assert.equal(await page.locator('.view-card').count(),2);assert.equal(await page.locator('[data-projection]').first().inputValue(),'PA');assert.match(await page.locator('#report-panel').innerText(),/Not performed/);
   console.log('PASS: upload → label → choose atlas → notes → IndexedDB persistence');
 
+  await click('new');await page.locator('#study-file-input').setInputFiles('test-results/reference.png');
+  await page.waitForFunction(()=>document.querySelectorAll('.study-draft-card').length===1);await click('close-modal');
+  assert.equal(await page.locator('#report-notes').inputValue(),'Educational note: reference view added.');
+  assert.equal(await page.locator('[data-projection]').first().inputValue(),'PA');
+  console.log('PASS: cancelling a new draft preserves uploaded views and saved notes');
+
   await page.locator('#file-input').setInputFiles({name:'unsupported.dcm',mimeType:'application/dicom',buffer:Buffer.from('DICOM')});await page.waitForFunction(()=>document.querySelector('#toast').textContent.includes('Use PNG'));assert.equal(await page.locator('.view-card').count(),2);
   await click('settings');await click('clear-storage');await page.waitForFunction(()=>document.querySelectorAll('.view-card').length===0);assert.equal(await page.locator('.view-card').count(),0);await page.waitForTimeout(500);await page.reload();await page.waitForFunction(()=>window.__x3dReady);assert.equal(await page.locator('.view-card').count(),0);
   console.log('PASS: unsupported file handling and clearing stored references');
 
-  await click('examples');await page.locator('[data-case="metacarpal"]').click();await page.waitForFunction(()=>document.querySelectorAll('.view-card').length===2);await page.setViewportSize({width:390,height:844});await page.waitForTimeout(500);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'No mobile horizontal overflow');await page.screenshot({path:'test-results/mobile.png',fullPage:true});await click('tab-report');await page.screenshot({path:'test-results/mobile-report.png',fullPage:true});await click('model-info');assert.equal(await page.getByRole('dialog').isVisible(),true);await page.keyboard.press('Escape');assert.equal(await page.getByRole('dialog').count(),0);
+  await click('home');await page.waitForFunction(()=>document.querySelectorAll('.view-card').length===2);assert.match(await page.locator('#sidebar-context').innerText(),/Fifth metacarpal/);await page.setViewportSize({width:390,height:844});await page.waitForTimeout(500);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'No mobile horizontal overflow');await page.screenshot({path:'test-results/mobile.png',fullPage:true});await click('tab-report');await page.screenshot({path:'test-results/mobile-report.png',fullPage:true});await click('model-info');assert.equal(await page.getByRole('dialog').isVisible(),true);await page.keyboard.press('Escape');assert.equal(await page.getByRole('dialog').count(),0);
   assert.equal(errors.length,0,`Browser errors: ${errors.join('; ')}`);
   console.log('PASS: mobile layout, reports, accessible dialogs, no runtime errors');
 
